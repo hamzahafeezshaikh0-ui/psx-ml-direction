@@ -46,6 +46,16 @@ Lucky Cement did a 5-for-1 stock split in April 2025. Yahoo's data did not handl
 - Data files are not stored in this repo. Run notebook 01 to download and repair them.
 - Predictive accuracy does not establish that a trading strategy would be profitable, because transaction costs, liquidity and price limits are not modelled.
 
+
+## Target and exploratory findings
+
+**Target:** for each trading day, the label is 1 if the next session's close is higher than today's close, and 0 if it is lower or the same. The last row has no next day and is removed, leaving 2,884 labelled days. Alignment was checked by hand on the first and last rows.
+
+**Findings (LUCK, 2015-2026):**
+- 48.2% of days are up and 51.8% are down or flat. The up share varies by year (44.4% to 54.1%), so the majority-class baseline will be chosen from training data only.
+- Daily returns are centred near zero (mean +0.07%, median -0.05%) with fat tails. Extreme days reach about ±10%, which matches the PSX daily price limits.
+- The correlation between today's and yesterday's return is 0.108: small, and not evidence of predictability on its own.
+
 ## Disclaimer
 
 This is an educational project and not financial advice.
