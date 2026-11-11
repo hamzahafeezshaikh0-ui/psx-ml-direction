@@ -17,6 +17,28 @@ The purpose is not to build a trading system or claim that the market can be pre
 - **Model:** logistic regression.
 - **Evaluation:** chronological split (never shuffled), with the last part of the data kept untouched as the final test. Accuracy is reported with confidence intervals, alongside balanced accuracy, confusion matrix and log-loss.
 
+## Hypotheses (written before any model was evaluated on the test period)
+
+- **H0:** a logistic regression model's accuracy on the final test period is no better than the accuracy of each of the two baselines.
+- **H1:** the model beats both baselines on test accuracy, and the 95% bootstrap interval of the accuracy difference (model minus baseline) excludes zero for both comparisons.
+- **Secondary hypothesis:** repeating the previous day's direction beats always predicting the majority class.
+- **Primary metric:** accuracy on the final test period. Secondary: balanced accuracy, log-loss, precision/recall, confusion matrices.
+- **Decision rule:** the model "beats" a baseline only if the lower end of the 95% interval of the accuracy difference is above zero. Otherwise the result is reported as no clear evidence of improvement.
+
+
+## Protocol (fixed before evaluation)
+
+- Chronological split of each stock's daily data: first 75% = development, last 25% = test. One boundary row between them is dropped.
+- Majority class is chosen from development data only.
+- Features (all from past data only): previous-day return, 5-day return, 10-day volatility of returns, volume vs its 20-day average, (high - low) / close, distance from the 20-day moving average.
+- Model: logistic regression with standardised features. Feature set (all 6, or 3 core ones) and regularisation C (0.001 to 10) are chosen by 5-fold expanding-window cross-validation on development data, using log-loss.
+- Prediction rule: predict "up" if the model's probability is above 0.5.
+- The test set is used once for the main result. Nothing is tuned after seeing it.
+- Comparison: paired bootstrap (5,000 resamples of test days) of the accuracy difference. It treats days as independent, which is a limitation.
+- Stocks: LUCK first (chosen because its data was already prepared). Then, from the list PSO, HUBC, INDU in that order, the first two that pass the data checks: at least 2,500 trading days since 2015 after removing zero-volume days, and no unresolved daily price move above 11%. All stocks are reported, including failures. The same procedure is run on each stock.
+- Any change to this protocol after this commit is written down in the decision log.
+
+
 ## Data
 
 - **Source:** Yahoo Finance via the yfinance library, ticker LUCK.KA (Lucky Cement), daily Open/High/Low/Close/Volume.
@@ -45,6 +67,8 @@ Lucky Cement did a 5-for-1 stock split in April 2025. Yahoo's data did not handl
 - One data source, not cross-checked against the PSX portal. The checks catch large errors, not small ones.
 - Data files are not stored in this repo. Run notebook 01 to download and repair them.
 - Predictive accuracy does not establish that a trading strategy would be profitable, because transaction costs, liquidity and price limits are not modelled.
+- The exploratory statistics in the "Target and exploratory findings" section (up share, returns, lag-1 correlation) were computed on the full 2015-2026 sample, which includes the later test period. No modelling decision was based on them. All later exploration and tuning use development data only.
+
 
 
 ## Target and exploratory findings
