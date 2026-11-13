@@ -1,0 +1,4 @@
+comparison,diff,ci_low,ci_high
+LogReg - A,0.0014,-0.0097,0.0125
+LogReg - B,-0.0402,-0.0888,0.0125
+B - A,0.0416,-0.0125,0.0929
