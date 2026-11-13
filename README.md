@@ -80,6 +80,17 @@ Lucky Cement did a 5-for-1 stock split in April 2025. Yahoo's data did not handl
 - Daily returns are centred near zero (mean +0.07%, median -0.05%) with fat tails. Extreme days reach about ±10%, which matches the PSX daily price limits.
 - The correlation between today's and yesterday's return is 0.108: small, and not evidence of predictability on its own.
 
+## Decision log
+
+Choices made while building the project, with the reason for each. New entries are added as decisions are made.
+
+- **Classification, not regression:** the question is up or not-up, and returns are dominated by rare large moves.
+- **Chronological split with a dropped boundary row:** shuffling would let the model train on days after the ones it is tested on.
+- **Majority class chosen from development data only:** choosing it from the test labels would be peeking.
+- **Logistic regression:** it matches a 0/1 target, gives probabilities, and is easy to verify by hand.
+- **Cross-validation gap:** cross-validation uses a gap of one row between training and validation parts (TimeSeriesSplit gap=1), matching the dropped boundary row between development and test. For a one-day label this is a conservative precaution, not a necessity. Added before any model was evaluated.
+- **LUCK first:** its data was already cleaned. The other stocks are chosen by the rule committed in advance.
+
 ## Disclaimer
 
 This is an educational project and not financial advice.
