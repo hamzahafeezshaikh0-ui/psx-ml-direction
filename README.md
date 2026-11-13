@@ -91,6 +91,13 @@ Choices made while building the project, with the reason for each. New entries a
 - **Cross-validation gap:** cross-validation uses a gap of one row between training and validation parts (TimeSeriesSplit gap=1), matching the dropped boundary row between development and test. For a one-day label this is a conservative precaution, not a necessity. Added before any model was evaluated.
 - **LUCK first:** its data was already cleaned. The other stocks are chosen by the rule committed in advance.
 
+## Experiment reports
+
+Detailed experimental results, model comparisons and ongoing development:
+
+- [LUCK baseline experiment — results and findings](reports/luck_baseline_results.md)
+
+
 ## Disclaimer
 
 This is an educational project and not financial advice.
