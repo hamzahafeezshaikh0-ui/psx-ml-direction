@@ -1,103 +1,186 @@
 # Evaluating Machine Learning for Next-Day Direction Prediction in the Pakistan Stock Exchange
 
-## Research question
+## Overview
 
-Can machine learning predict next-trading-day market direction for selected PSX stocks, and does it outperform simple baseline prediction methods on genuinely unseen historical data?
+Can machine learning predict next-trading-day stock direction in the Pakistan Stock Exchange (PSX), and can it outperform simple prediction methods on unseen historical data?
 
-The task is binary classification: the label is 1 if the next session's close is higher than today's close, and 0 otherwise. The prediction is made after today's close, using only information available by then.
+This project investigates that question using historical daily stock data and machine-learning classification.
 
-The purpose is not to build a trading system or claim that the market can be predicted reliably. The aim is a fair experiment to see whether a simple model adds predictive value over simple alternatives. A result close to the baselines is a valid finding.
+The task is binary classification:
+- `1`: The next trading session's closing price is higher than today's.
+- `0`: The next session's closing price is lower than or equal to today's.
 
-## Approach
+The prediction is made after the current trading session, using only information available at that point.
 
-- **Tools:** Python, pandas, NumPy, matplotlib, scikit-learn.
-- **Data:** daily PSX stock data, starting with one stock (LUCK) and expanding to about three liquid stocks.
-- **Features:** a small set built only from past prices and volume (previous-day return, 5-day return, 10-day volatility, volume change, high-low range, distance from the 20-day moving average).
-- **Baselines:** always predict the most common class from the training data, and repeat the previous day's direction.
-- **Model:** logistic regression.
-- **Evaluation:** chronological split (never shuffled), with the last part of the data kept untouched as the final test. Accuracy is reported with confidence intervals, alongside balanced accuracy, confusion matrix and log-loss.
+The objective is to conduct a fair experiment, not to build a trading system or claim that financial markets can be reliably predicted. A model that fails to outperform simple baselines is still a valid experimental finding.
 
-## Hypotheses (written before any model was evaluated on the test period)
+## Technologies
 
-- **H0:** a logistic regression model's accuracy on the final test period is no better than the accuracy of each of the two baselines.
-- **H1:** the model beats both baselines on test accuracy, and the 95% bootstrap interval of the accuracy difference (model minus baseline) excludes zero for both comparisons.
-- **Secondary hypothesis:** repeating the previous day's direction beats always predicting the majority class.
-- **Primary metric:** accuracy on the final test period. Secondary: balanced accuracy, log-loss, precision/recall, confusion matrices.
-- **Decision rule:** the model "beats" a baseline only if the lower end of the 95% interval of the accuracy difference is above zero. Otherwise the result is reported as no clear evidence of improvement.
+- Python
+- pandas and NumPy
+- matplotlib
+- scikit-learn
+- yfinance
+- Jupyter Notebook
+- Git and GitHub
 
+## Dataset and Preparation
 
-## Protocol (fixed before evaluation)
+**Stock:** Lucky Cement (LUCK.KA)  
+**Source:** Yahoo Finance through `yfinance`  
+**Period:** 1 January 2015 – 13 October 2026  
+**Raw observations:** 3,053  
+**Observations after cleaning:** 2,885  
+**Labelled observations:** 2,884
 
-- Chronological split of each stock's daily data: first 75% = development, last 25% = test. One boundary row between them is dropped.
-- Majority class is chosen from development data only.
-- Features (all from past data only): previous-day return, 5-day return, 10-day volatility of returns, volume vs its 20-day average, (high - low) / close, distance from the 20-day moving average.
-- Model: logistic regression with standardised features. Feature set (all 6, or 3 core ones) and regularisation C (0.001 to 10) are chosen by 5-fold expanding-window cross-validation on development data, using log-loss.
-- Prediction rule: predict "up" if the model's probability is above 0.5.
-- The test set is used once for the main result. Nothing is tuned after seeing it.
-- Comparison: paired bootstrap (5,000 resamples of test days) of the accuracy difference. It treats days as independent, which is a limitation.
-- Stocks: LUCK first (chosen because its data was already prepared). Then, from the list PSO, HUBC, INDU in that order, the first two that pass the data checks: at least 2,500 trading days since 2015 after removing zero-volume days, and no unresolved daily price move above 11%. All stocks are reported, including failures. The same procedure is run on each stock.
-- Any change to this protocol after this commit is written down in the decision log.
+### Data cleaning
 
+A significant data issue was identified involving Lucky Cement's 5-for-1 stock split in April 2025.
 
-## Data
+Yahoo Finance contained inconsistent price adjustments, including an apparent price drop of approximately 80% on 10 April 2025 and three February observations on the post-split price scale.
 
-- **Source:** Yahoo Finance via the yfinance library, ticker LUCK.KA (Lucky Cement), daily Open/High/Low/Close/Volume.
-- **Coverage:** 2015-01-01 to 2026-10-13. 3,053 raw rows, 2,885 trading days after cleaning.
-- **Note:** prices come from Yahoo, so they may differ from prices on a broker screen.
+The data was corrected by:
+- Dividing pre-10 April 2025 prices by five.
+- Multiplying corresponding historical volume by five.
+- Retaining the three February observations already on the adjusted scale.
+- Removing 168 zero-volume observations.
 
-### Data problem found and fixed
+Additional checks covered missing values, duplicate dates, price consistency and unusually large daily movements.
 
-Lucky Cement did a 5-for-1 stock split in April 2025. Yahoo's data did not handle it correctly:
+Data files are not committed to the repository. Run Notebook 01 to download and prepare the dataset.
 
-- The price fell about 80% in one day (about 1,529 to about 314 on 2025-04-10), which looked like a crash but was just the split.
-- Three rows in Feb 2025 (26-28 Feb) were already on the post-split scale, so the price flipped back and forth.
+## Methodology
 
-**Fix:** divided prices before 2025-04-10 by 5, multiplied their volume by 5, left the three Feb rows as they were, and removed 168 zero-volume rows (holidays, the trading suspension, filler).
+### Features
 
-**Check:** after the fix, the price chart is smooth and the volume chart has no lasting step. The largest daily move is about 10%, which looks consistent with the PSX daily price limit.
+Six technical features were initially investigated, calculated using historical information only:
 
-### Data quality checks (all passed)
+- Previous-day return (`ret_1`)
+- Five-day return (`ret_5`)
+- Ten-day return volatility (`vol_10`)
+- Volume change (`vol_chg`)
+- High-low price range (`hl_range`)
+- Distance from the 20-day moving average (`ma_dist`)
 
-- Sorted oldest to newest, 0 duplicate dates, 0 missing values, 0 rows with High < Low.
-- Zero-change days: 0.07% of days.
-- Largest daily moves (about 8-10%) look like real limit moves, not errors.
+### Baselines
+
+Two simple prediction methods were used:
+
+1. **Majority-class baseline:** Always predicts the most common class in the development dataset.
+2. **Previous-direction baseline:** Predicts the same direction as the previous trading session.
+
+### Machine-learning model
+
+Logistic Regression was selected because it is suitable for binary classification, produces probabilities and provides a relatively interpretable starting point.
+
+Features were standardised using `StandardScaler`.
+
+The experiment compared two feature sets (all six features and three core features) and regularisation values of `C = 0.001, 0.01, 0.1, 1, 10`.
+
+Hyperparameters and feature selection were evaluated using five-fold expanding-window time-series cross-validation on development data, with log-loss as the selection metric.
+
+### Evaluation protocol
+
+- Data was sorted chronologically.
+- The first 75% was used for development and the final 25% for testing.
+- One boundary observation was removed between development and test sets.
+- The test set was not used for model selection.
+- Accuracy, balanced accuracy, ROC-AUC, log-loss and precision/recall were examined.
+- Paired bootstrap resampling with 5,000 samples was used to estimate confidence intervals for accuracy differences.
+
+The primary hypothesis required Logistic Regression to outperform both baselines, with the 95% confidence interval of each accuracy difference entirely above zero.
+
+## Results and Findings
+
+### LUCK.KA baseline experiment
+
+The selected configuration was Logistic Regression using the three-core-feature set (`core3`) with `C = 0.001`.
+
+**Test observations: 721**
+
+| Model | Test accuracy |
+|---|---:|
+| Majority-class baseline | 49.38% |
+| Previous-direction baseline | 53.54% |
+| Logistic Regression | 49.51% |
+
+Logistic Regression achieved approximately 4.02 percentage points lower accuracy than the previous-direction baseline.
+
+### Statistical comparison
+
+The paired bootstrap comparison produced the following 95% confidence intervals:
+
+| Comparison | Accuracy difference | 95% CI |
+|---|---:|---:|
+| Logistic Regression − Majority | +0.14 pp | [-0.97, +1.25] pp |
+| Logistic Regression − Previous direction | -4.02 pp | [-8.88, +1.25] pp |
+| Previous direction − Majority | +4.16 pp | [-1.25, +9.29] pp |
+
+The intervals include zero, so the experiment did not establish a statistically clear improvement over either baseline under the predefined decision rule.
+
+### Conclusion
+
+The experiment did not provide convincing evidence that the selected Logistic Regression model could predict next-day LUCK.KA direction more accurately than simple baseline methods.
+
+This is an important finding: using machine learning does not automatically produce better predictions than simpler alternatives.
+
+The results apply to this stock, dataset and experimental setup. They should not be generalised to the entire PSX.
+
+Detailed results are available in [the LUCK baseline experiment report](reports/luck_baseline_results.md).
 
 ## Limitations
 
-- One data source, not cross-checked against the PSX portal. The checks catch large errors, not small ones.
-- Data files are not stored in this repo. Run notebook 01 to download and repair them.
-- Predictive accuracy does not establish that a trading strategy would be profitable, because transaction costs, liquidity and price limits are not modelled.
-- The exploratory statistics in the "Target and exploratory findings" section (up share, returns, lag-1 correlation) were computed on the full 2015-2026 sample, which includes the later test period. No modelling decision was based on them. All later exploration and tuning use development data only.
+- **Single stock:** The current completed experiment focuses on LUCK.KA and cannot establish performance across the entire PSX.
+- **Limited features:** The model uses a relatively small set of technical indicators.
+- **Model complexity:** Logistic Regression captures linear relationships and may miss nonlinear patterns.
+- **Data source:** Yahoo Finance data was not independently cross-checked against official PSX records.
+- **Market changes:** Historical relationships may not remain predictive under changing market conditions.
+- **Statistical assumptions:** The paired bootstrap treats test days as independent, although financial observations can exhibit temporal dependence.
+- **Trading profitability:** Accuracy does not establish profitability. Transaction costs, liquidity, slippage and price limits were not modelled.
 
+## Future Improvements
 
+The project can be extended through several carefully controlled experiments:
 
-## Target and exploratory findings
+1. **Feature engineering:** Investigate additional past-only indicators such as RSI, MACD, momentum and alternative volatility measures.
+2. **Alternative models:** Compare Logistic Regression with Random Forest and XGBoost to investigate whether nonlinear models capture useful patterns.
+3. **Stacking ensemble:** Combine predictions from multiple base models using a Logistic Regression meta-model. Chronological out-of-fold predictions will be required to prevent data leakage.
+4. **Stability analysis:** Evaluate model performance across different chronological portions of the test period.
+5. **Broader evaluation:** Investigate additional PSX stocks to determine whether findings generalise across companies.
+6. **Trading simulation:** Explore whether any predictive improvement translates into potential returns after realistic transaction costs and trading constraints.
 
-**Target:** for each trading day, the label is 1 if the next session's close is higher than today's close, and 0 if it is lower or the same. The last row has no next day and is removed, leaving 2,884 labelled days. Alignment was checked by hand on the first and last rows.
+These are proposed extensions, not completed results. Any new experiment will have its own documented methodology and evaluation procedure.
 
-**Findings (LUCK, 2015-2026):**
-- 48.2% of days are up and 51.8% are down or flat. The up share varies by year (44.4% to 54.1%), so the majority-class baseline will be chosen from training data only.
-- Daily returns are centred near zero (mean +0.07%, median -0.05%) with fat tails. Extreme days reach about ±10%, which matches the PSX daily price limits.
-- The correlation between today's and yesterday's return is 0.108: small, and not evidence of predictability on its own.
+## Repository Structure
 
-## Decision log
+```text
+psx-ml-direction/
+├── data/                 # Generated locally; not tracked
+├── notebooks/            # Data analysis and experiments
+├── reports/              # Detailed experiment reports
+├── src/                  # Reusable Python modules
+├── requirements.txt
+└── README.md
+```
 
-Choices made while building the project, with the reason for each. New entries are added as decisions are made.
+## Reproducibility
 
-- **Classification, not regression:** the question is up or not-up, and returns are dominated by rare large moves.
-- **Chronological split with a dropped boundary row:** shuffling would let the model train on days after the ones it is tested on.
-- **Majority class chosen from development data only:** choosing it from the test labels would be peeking.
-- **Logistic regression:** it matches a 0/1 target, gives probabilities, and is easy to verify by hand.
-- **Cross-validation gap:** cross-validation uses a gap of one row between training and validation parts (TimeSeriesSplit gap=1), matching the dropped boundary row between development and test. For a one-day label this is a conservative precaution, not a necessity. Added before any model was evaluated.
-- **LUCK first:** its data was already cleaned. The other stocks are chosen by the rule committed in advance.
+Clone the repository and install the dependencies:
 
-## Experiment reports
+```bash
+git clone https://github.com/hamzahafeezshaikh0-ui/psx-ml-direction.git
+cd psx-ml-direction
 
-Detailed experimental results, model comparisons and ongoing development:
+python3 -m venv .venv
+source .venv/bin/activate
 
-- [LUCK baseline experiment — results and findings](reports/luck_baseline_results.md)
+pip install -r requirements.txt
+```
 
+Open the project in Jupyter or VS Code and run the notebooks in numerical order, starting with Notebook 01.
+
+Notebook 01 downloads and prepares the data locally. Subsequent notebooks use the generated datasets.
 
 ## Disclaimer
 
-This is an educational project and not financial advice.
+This is an educational machine-learning research project, not financial advice or a trading recommendation.
